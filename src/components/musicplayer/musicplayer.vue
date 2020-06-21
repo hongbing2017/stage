@@ -125,7 +125,7 @@ export default {
       this.initCanvas()
       stage.add(this)
       this.bActiveDrage = false
-    }else{
+    }
       let screenAspect = LocalStore.get('screenAspect')||0
       let data = {
         width: 500,
@@ -137,7 +137,7 @@ export default {
       this.$store.dispatch('set_transform', {
         info: data
       })
-    }
+    
   },
 
   destroyed () {
