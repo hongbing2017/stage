@@ -2,16 +2,28 @@
 <div class="bk">
     <div class="main">
         <!-- <canvas ref="canvas"></canvas> -->
+          
         <div class="desktip" >
-          使用方法：点击开始直播，点击右边按钮生成各种效果，点击拖动到此虚线框内随意组合，在直播窗口观察效果，然后用OBS等推流软件捕获直播窗口
+        使用方法：点击开始直播，点击右边按钮生成各种效果，点击拖动到此虚线框内随意组合，在直播窗口观察效果，然后用OBS等推流软件捕获直播窗口
+        
         </div>
-           
-        <div ref='desk' :class='{desk:screenAspect==0,desk1:screenAspect==1}'>
-          <div class="screenbtn" @click="onChangeScreen">{{screenAspect==0?'横屏':'竖屏'}}</div>
+        <div class="desktoolbar">
+          <div class="screenbtn" @click="onChangeScreen">{{this.screen.w>=this.screen.h?'竖屏':'横屏'}}</div>  
+           <el-select class="screenSelect" size="mini" v-model="curScreen" placeholder="分辨率"  @change="onSelectResolution">
+          <el-option 
+            v-for="item in resolutionList"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+           >
+          </el-option>
+        </el-select>
+        </div>
+        <div ref='desk' class='desk' :style="{height:screen.h+'px', width:screen.w+'px'}">
           
           <musicplayer id="musicplayer" :bManage="true" :transform="transform"></musicplayer>
         </div>
-      
+       
     </div>
     <div class="toolbar">
         <!-- <div :class="{liveBtnOff:!bLiveOpen,liveBtnOn:bLiveOpen}" @click="onOpenLive">{{bLiveOpen?'结束直播':'开始直播'}}</div> -->
@@ -146,10 +158,39 @@ export default {
     return {
       sourceList:[],  //更新源
       bSelectDownload:false,
-      screenAspect: 0, //0=竖屏 1=横屏
+
       bOpenSongList: false,
       curSelect: -1,
-
+      curScreen:'1280*720',
+      resolutionList:[
+         {
+          value: '1024*768',
+          label: '1024*768'
+        },
+        {
+          value: '1280*720',
+          label: '1280*720'
+        },  
+        {
+          value: '1366*768',
+          label: '1366*768'
+        },
+        {
+          value: '1440*900',
+          label: '1440*900'
+        },
+        {
+          value: '1600*1200',
+          label: '1600*1200'
+        },{
+          value: '1920*1080',
+          label: '1920*1080'
+        },
+        {
+          value: '1920*1200',
+          label: '1920*1200'
+        }
+        ],
       bLiveOpen: false,
       dialogVisible: false,
       transform: {
@@ -181,10 +222,11 @@ export default {
     }
   },
   beforeCreate () {
+    console.log("分辨率：",this.$store.state.common.screen)
     this.$store.registerModule(['music'], musicState) // 只能在这个节点注入，不然computed和watch会报错
   },
   mounted () {
-    this.screenAspect = LocalStore.get('screenAspect')||0
+    
 
     let songList = LocalStore.get('songList') || []
     this.$store.dispatch('set_songlist', {list: songList})
@@ -229,12 +271,23 @@ export default {
     ...mapState({
       'songList': state => state.music.songList,
       'dragActivateInfo': state => state.common.dragActivateInfo,
-      'dragDeactivateInfo': state => state.common.dragDeactivateInfo
+      'dragDeactivateInfo': state => state.common.dragDeactivateInfo,
+      "screen":state => {
+        let screen = state.common.screen
+        let w = Number(screen.w)
+        let h = Number(screen.h)
+        return {w,h}
+      }
     })
 
   },
   watch: {
- 
+    screen:function(){
+      let screen = this.$store.state.common.screen
+      console.log("watch screen change:",screen)
+      LocalStore.set('screenResolution',screen)
+      this.$electron.ipcRenderer.send('changeScreen')
+    },
     songList: function () {
       let list = this.$store.state.music.songList
       LocalStore.set('songList', list)
@@ -266,10 +319,27 @@ export default {
 
   },
   methods: {
+    onSelectResolution(e){
+      console.log("改变分辨率：",e)
+      e = e.split('*')
+      let w = e[0]
+      let h = e[1]
+
+      this.$store.dispatch('set_screen', {w,h})
+      // LocalStore.set('screenResolution',{
+      //   w,
+      //   h
+      // })
+      // this.$electron.ipcRenderer.send('changeScreenResolution')
+    },
     onChangeScreen(e){
-        this.screenAspect = this.screenAspect==0?1:0
-        LocalStore.set('screenAspect',this.screenAspect)
-        this.$electron.ipcRenderer.send('changeScreenAspect')
+        let screen = this.screen
+        let w = screen.w
+        screen.w = screen.h
+        screen.h = w
+
+        this.$store.dispatch('set_screen', screen)
+        
     },
     openDownload(e){
        let index = e.currentTarget.id
@@ -586,7 +656,7 @@ export default {
       if (!this.bLiveOpen) {
         this.bLiveOpen = true
         // 给主进程发信息，
-        this.$electron.ipcRenderer.send('openLive')
+        this.$electron.ipcRenderer.send('openLive',this.screen)
       } else {
         this.$confirm('你确定要关闭直播窗口吗?', '提示', {
           confirmButtonText: '确定',
@@ -656,7 +726,6 @@ export default {
 
 .desk {
     position: relative;
-    top: 20px;
     left: 20px;
     width: 720px;
     height: 1152px;
@@ -667,7 +736,6 @@ export default {
 }
 .desk1{
   position: relative;
-    top: 20px;
     left: 20px;
     height: 720px;
     width: 1152px;
@@ -790,23 +858,25 @@ export default {
 .desktip{
   width:4000px;
   height:20px;
-  padding:4px 20px;
+  margin:4px 20px;
 }
 .screenbtn{
-    margin: 6px;
+    margin:0 6px;
     width: 50px;
-    height: 20px;
+    height: 28px;
     border: 1px solid #ddd;
     border-radius: 4px;
-    color: #ddd;
+    background: #fff;
+    color: #333;
+    
     text-align: center;
-    line-height: 20px;
+    line-height: 28px;
     font-size: 12px;
 }
 
 .screenbtn:hover{
-  background: #ddd;
-  color: #333;
+  background:#666;
+  color: #ddd;
   border:1px solid #333;
 }
 /*
@@ -819,4 +889,24 @@ export default {
     height: 100%;
 }
 */
+
+.desktoolbar{
+  margin: 10px;
+  display: flex;
+}
+/* .screenSelect{
+ margin: 6px;
+    width: 150px;
+    height: 20px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    color: #ddd;
+    text-align: center;
+    line-height: 20px;
+    font-size: 12px;
+}
+.el-input {
+  height: 20px;
+  font-size: 12px;
+} */
 </style>

@@ -15,7 +15,7 @@ export default Vue.extend({
   components: {
     'draggable': VueDraggableResizableRotatable
   },
-  render (createElement) {
+  render(createElement) {
     return createElement(
       'draggable', {
         attrs: {
@@ -140,7 +140,7 @@ export default Vue.extend({
                   // 'blur': this.closeDrage
                 },
                 domProps: {
-                  innerHTML: this.type == 'iframe' ? '':this.info.text
+                  innerHTML: this.type == 'iframe' ? '' : this.info.text
                 }
               })
           ]
@@ -149,10 +149,10 @@ export default Vue.extend({
     )
   },
 
-  created () {
+  created() {
     this.store.registerModule([this.name], labelstate)
   },
-  mounted () {
+  mounted() {
     if (this.type == 'plugin') {
       window[this.name] = {
         bootstrap: () => {
@@ -210,15 +210,18 @@ export default Vue.extend({
     } else if (this.type == 'text') {
       let innerHTML = `<div style="font-size:${this.info.fontSize};font-family:${this.info.fontName};color:${this.info.fontColor};background:${this.info.fontBkColor};">${this.info.text}</div>`
       this.info.text = innerHTML
-    } 
+    }
   },
   computed: {
-    zIndex () {
+    screen () {
+      return this.store.state.common.screen
+    },
+    zIndex() {
       let t = this.store.state[this.name]
       if (!t) return 0
       return t.zIndex
     },
-    transform () {
+    transform() {
       let t = this.store.state[this.name]
       if (!t) {
         return {
@@ -239,13 +242,13 @@ export default Vue.extend({
         rotation: t.rotation
       }
     },
-    endDrag () {
+    endDrag() {
       return this.store.state.common.endDrag
     }
 
   },
   watch: {
-    endDrag () {
+    endDrag() {
       if (this.bDragActived) {
         console.log('watch')
         this.bDragActived = false
@@ -254,16 +257,16 @@ export default Vue.extend({
     }
   },
   methods: {
-    openDrage (e) {
+    openDrage(e) {
       if (!this.bManage) return
       this.bDragActived = true
       e.stopPropagation()
     },
-    closeDrage (e) {
+    closeDrage(e) {
       this.store.commit('endDrag')
       e.stopPropagation()
     },
-    delLabel (e) {
+    delLabel(e) {
       console.log('删除贴纸')
       this.$electron.ipcRenderer.send('component', JSON.stringify({
         op: 'del',
@@ -271,63 +274,60 @@ export default Vue.extend({
         name: this.name
       }))
     },
-    fullScreeen (e) {
+    fullScreeen(e) {
       let t = this.store.state[this.name]
       if (!t) return
       t = t.transform
       console.log("fullscreen click")
-      let screenAspect = LocalStore.get('screenAspect')||0
+      //let screenAspect = LocalStore.get('screenAspect') || 0
 
-      if (t.width == 720 && t.height == 1152) {
+      if (t.width == this.screen.w && t.height == this.screen.h) {
         let transform = {
           width: 400,
           height: 300,
-          x: 721,
+          x: Number(this.screen.w) + 1,
           y: 0,
           rotation: 0
         }
 
-        this.store.dispatch(this.name + '/set_transform', {info: transform})
-      }else if(t.width== 1152 && t.height==720){
+        this.store.dispatch(this.name + '/set_transform', {
+          info: transform
+        })
+      }else {
         let transform = {
-          width: 400,
-          height: 300,
-          x: 1153,
-          y: 0,
-          rotation: 0
-        }
-
-        this.store.dispatch(this.name + '/set_transform', {info: transform})
-      } 
-      else {
-        let transform = {
-          width: screenAspect?1152:720,
-          height:screenAspect?720:1152,
+          width: Number(this.screen.w),
+          height: Number(this.screen.h),
           x: 0,
           y: 0,
           rotation: 0
         }
-        this.store.dispatch(this.name + '/set_transform', {info: transform})
+        this.store.dispatch(this.name + '/set_transform', {
+          info: transform
+        })
       }
     },
-    zindexplus () {
+    zindexplus() {
       let zIndex = this.store.state[this.name].zIndex + 1
-      this.store.dispatch(this.name + '/set_zindex', {zIndex})
+      this.store.dispatch(this.name + '/set_zindex', {
+        zIndex
+      })
     },
-    zindexminus () {
+    zindexminus() {
       let zIndex = this.store.state[this.name].zIndex
       if (zIndex < 1) return
-      this.store.dispatch(this.name + '/set_zindex', {zIndex: zIndex - 1})
+      this.store.dispatch(this.name + '/set_zindex', {
+        zIndex: zIndex - 1
+      })
     },
 
-    onActivated (e) {
+    onActivated(e) {
       this.bDragActived = true
       let allFrame = document.querySelectorAll('.textbox>iframe')
       allFrame.forEach(frame => { // 禁止其它iframe的鼠标事件
         frame.style = 'overflow: hidden; width: 100%; height: 100%; border: 0px; backgournd:transparent;pointer-events:none; '
       })
     },
-    onDeactivated () {
+    onDeactivated() {
       console.log('deactivated1:')
 
       let allFrame = document.querySelectorAll('.textbox>iframe')
@@ -335,7 +335,7 @@ export default Vue.extend({
         frame.style = 'overflow: hidden; width: 100%; height: 100%; border: 0px; backgournd:transparent;'
       })
     },
-    onDrageEnd (x, y) {
+    onDrageEnd(x, y) {
       let t = this.store.state[this.name]
       if (!t) return
       t = t.transform
@@ -346,9 +346,11 @@ export default Vue.extend({
         y,
         rotation: t.rotation
       }
-      this.store.dispatch(this.name + '/set_transform', {info: data})
+      this.store.dispatch(this.name + '/set_transform', {
+        info: data
+      })
     },
-    onResizeEnd (left, top, width, height) {
+    onResizeEnd(left, top, width, height) {
       let t = this.store.state[this.name]
       if (!t) return
       t = t.transform
@@ -359,9 +361,11 @@ export default Vue.extend({
         y: top,
         rotation: t.rotation
       }
-      this.store.dispatch(this.name + '/set_transform', {info: data})
+      this.store.dispatch(this.name + '/set_transform', {
+        info: data
+      })
     },
-    onRotateEnd (rotate) {
+    onRotateEnd(rotate) {
       let t = this.store.state[this.name]
       if (!t) return
       t = t.transform
@@ -372,10 +376,12 @@ export default Vue.extend({
         y: t.y,
         rotation: rotate
       }
-      this.store.dispatch(this.name + '/set_transform', {info: data})
+      this.store.dispatch(this.name + '/set_transform', {
+        info: data
+      })
     }
   },
-  data () {
+  data() {
     return {
       bDragActived: false,
       minHeight: 40,

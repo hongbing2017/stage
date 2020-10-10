@@ -1,3 +1,4 @@
+
 var fs = require('fs')
 const http = require('http')
 const path = require('path')
@@ -115,14 +116,14 @@ function startMusicServer (appDir) {
 
     ws.on('message', function incoming (message) {
       let msg = JSON.parse(message)
-       //console.log("ws 服务器收到信息：", msg)
+       console.log("ws 服务器收到信息：", msg)
       _LinkerList.some(item => {
         if (msg.name == item.name) {
           if (msg.bManage) {
-            //console.log("转发给client:",!!item.client)
+            console.log("转发给client:",!!item.client)
             if (item.client)item.client.send(message) // 管理发来的消息直接转发给客户
           } else {
-            //console.log("转发给manage:",!!item.manager)
+            console.log("转发给manage:",!!item.manager)
             if (item.manager)item.manager.send(message) // 反之客户发来的消息直接转发给管理
           }
         }
@@ -154,4 +155,4 @@ function startMusicServer (appDir) {
   return server
 }
 
-module.exports = startMusicServer
+export default startMusicServer

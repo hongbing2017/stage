@@ -1,11 +1,12 @@
 <template>
-<div ref='desk' class="bk">
+<div ref='desk' class="livebk" >
     <!-- <div class="titlebar"></div> -->
     <musicplayer :bManage="false" :bActiveDrage="false"></musicplayer>
 </div>
 </template>
 
 <script>
+
 import musicplayer from '~/../components/musicplayer/musicplayer'
 
 import state from '~/../components/musicplayer/state'
@@ -53,36 +54,56 @@ export default {
         if (label) this.$refs.desk.removeChild(label)
       }
     })
+
+    this.$electron.ipcRenderer.on('party3play', (event, msg) => {
+      let m = JSON.parse(msg)
+   
+      let newInfo = {
+        nextSong: {
+          name: '<未设置>',
+          url: ''
+        },
+        curSong: {
+          url: m.url,
+          name:m.name
+        }
+      }
+      console.log("播放外链：",newInfo.curSong)
+      this.$store.dispatch('set_song', {
+        newInfo
+      })
+    })
+
   },
 
   destroyed () {
 
   },
-  computed: {
 
-  },
   methods: {
 
   }
 }
 </script>
 
-<style scoped>
+<style>
 body {
     font-family: 'Source Sans Pro', sans-serif;
     height: 100%;
     width: 100%;
     overflow: hidden;
-}
-
-.bk {
-    height: 100%;
-    width: 100%;
     background: #000;
     color: aliceblue;
     -webkit-app-region: drag;
-    -webkit-user-select: none;
-    
+}
+
+.livebk {
+    position: absolute;
+    left:2px;
+    top:2px;
+    right:2px;
+    bottom: 2px;
+    -webkit-app-region: no-drag;
 }
 
 .titlebar {

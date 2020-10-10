@@ -1,3 +1,5 @@
+'use strict'
+
 import {
   app,
   Menu,
@@ -5,25 +7,27 @@ import {
   ipcMain,
   Tray,
   nativeImage,
-  session
+  session,
+  ipcRenderer
 } from 'electron'
-'use strict'
 
-console.log("版本：",process.versions)
+console.log("版本：", process.versions)
 const Store = require('electron-store') // 本地离线存储
 const LocalStore = new Store()
 
 const path = require('path')
 var version = require('../../package.json').version
 
-const { registerVuexHub } = require('../renderer/store/vuex-electron-ipc.js')
+const {
+  registerVuexHub
+} = require('../renderer/store/vuex-electron-ipc.js')
 
 registerVuexHub()
 
 // import '../renderer/store'
 const appDir = app.getPath('home')
 
-const localServer = require('./localServer.js')
+import localServer from './localServer.js'
 localServer(appDir)
 
 const server = 'http://127.0.0.1:5432'
@@ -31,6 +35,7 @@ const feed = `${server}/queryversion/update/${process.platform}/${version}`
 console.log('更新url:', feed)
 
 
+//const tempPath = app.getPath('temp')
 
 // autoUpdater.checkForUpdates()
 /**
@@ -42,27 +47,109 @@ if (process.env.NODE_ENV !== 'development') {
 }
 
 let mainWindow
-const winURL = process.env.NODE_ENV === 'development'
-  ? `http://localhost:9080`
-  : `file://${__dirname}/index.html`
+const winURL = process.env.NODE_ENV === 'development' ?
+  `http://localhost:9080` :
+  `file://${__dirname}/index.html`
 
-const liveURL = process.env.NODE_ENV === 'development'
-  ? `http://localhost:9080/#live`
-  : `file://${__dirname}/index.html#live`
+const liveURL = process.env.NODE_ENV === 'development' ?
+  `http://localhost:9080/#live` :
+  `file://${__dirname}/index.html#live`
 
 const icon = nativeImage.createFromPath(path.join(__dirname, '../assets/logo.png'))
 
-async function createWindow () {
+function hack_referer_header(details) {
+
+  let replace_referer = true;
+  let replace_origin = true;
+  let add_referer = true;
+  let add_origin = true;
+  var referer_value = '';
+
+  if (details.url.indexOf("://music.163.com/") != -1) {
+    referer_value = "http://music.163.com/";
+  }
+  if (details.url.indexOf("://gist.githubusercontent.com/") != -1) {
+    referer_value = "https://gist.githubusercontent.com/";
+  }
+
+  if (details.url.indexOf("api.xiami.com/") != -1 || details.url.indexOf('.xiami.com/song/playlist/id/') != -1) {
+    referer_value = "https://www.xiami.com/";
+  }
+
+  if ((details.url.indexOf("y.qq.com/") != -1) ||
+    (details.url.indexOf("qqmusic.qq.com/") != -1) ||
+    (details.url.indexOf("music.qq.com/") != -1) ||
+    (details.url.indexOf("imgcache.qq.com/") != -1)) {
+    referer_value = "http://y.qq.com/";
+  }
+  if (details.url.indexOf(".kugou.com/") != -1) {
+    referer_value = "http://www.kugou.com/";
+  }
+  if (details.url.indexOf(".kuwo.cn/") != -1) {
+    referer_value = "http://www.kuwo.cn/";
+  }
+  if (details.url.indexOf(".bilibili.com/") != -1) {
+    referer_value = "http://www.bilibili.com/";
+    replace_origin = false;
+    add_origin = false;
+  }
+  if (details.url.indexOf('.migu.cn') !== -1) {
+    referer_value = 'http://music.migu.cn/v3/music/player/audio?from=migu';
+  }
+
+  var isRefererSet = false;
+  var isOriginSet = false;
+  var headers = details.requestHeaders,
+    blockingResponse = {};
+
+  for (var i = 0, l = headers.length; i < l; ++i) {
+    if (replace_referer && (headers[i].name == 'Referer') && (referer_value != '')) {
+      headers[i].value = referer_value;
+      isRefererSet = true;
+    }
+    if (replace_origin && (headers[i].name == 'Origin') && (referer_value != '')) {
+      headers[i].value = referer_value;
+      isOriginSet = true;
+    }
+  }
+
+  if (add_referer && (!isRefererSet) && (referer_value != '')) {
+    headers["Referer"] = referer_value;
+  }
+
+  if (add_origin && (!isOriginSet) && (referer_value != '')) {
+    headers["Origin"] = referer_value;
+  }
+
+  details.requestHeaders = headers;
+};
+
+
+async function createWindow() {
   /**
    * Initial window options
    */
+  const filter = {
+    urls: ["*://music.163.com/*", "*://*.xiami.com/*", "*://i.y.qq.com/*", "*://c.y.qq.com/*", "*://*.kugou.com/*", "*://*.kuwo.cn/*", "*://*.bilibili.com/*", "*://*.migu.cn/*", "*://*.githubusercontent.com/*",
+      "https://listen1.github.io/listen1/callback.html?code=*"
+    ]
+  };
+
+  session.defaultSession.webRequest.onBeforeSendHeaders(filter, function (details, callback) {
+    console.log("hack header")
+    hack_referer_header(details);
+    callback({
+      cancel: false,
+      requestHeaders: details.requestHeaders
+    });
+  });
 
   // console.log('ico:', icon)
   //const appIcon = new Tray(icon)
   mainWindow = new BrowserWindow({
     title: '控制台: ' + version,
     height: 1024,
-    width: 1000,
+    width: 1280,
     minHeight: 600,
     minWidth: 600,
     icon: icon,
@@ -94,8 +181,8 @@ async function createWindow () {
 
   Menu.setApplicationMenu(null)
 
- // const ext = await session.defaultSession.loadExtension('C:/Users/ADMIN/AppData/Local/Google/Chrome/User Data/Default/Extensions/nhdogjmejiglipccpnnnanhbledajbpd/5.3.3_1')
- // console.log("插件安装结果：",ext)
+  // const ext = await session.defaultSession.loadExtension('C:/Users/ADMIN/AppData/Local/Google/Chrome/User Data/Default/Extensions/nhdogjmejiglipccpnnnanhbledajbpd/5.3.3_1')
+  // console.log("插件安装结果：",ext)
   // let r = BrowserWindow.addDevToolsExtension('C:/Users/ADMIN/AppData/Local/Google/Chrome/User Data/Default/Extensions/nhdogjmejiglipccpnnnanhbledajbpd/5.3.3_1');
   // console.log('安装插件结果：',BrowserWindow.getDevToolsExtensions());
 }
@@ -115,20 +202,18 @@ app.on('activate', () => {
 })
 
 var LiveWindow = null
-ipcMain.on('openLive', () => {
-  let screenAspect = LocalStore.get('screenAspect')||0
-  console.log("screenAspect:",screenAspect)
-
-  let height = screenAspect==0?1152:720
-  let width = screenAspect==0?720:1152
+ipcMain.on('openLive', (event, screen) => {
+  
+  let height = screen.h
+  let width = screen.w
 
   LiveWindow = new BrowserWindow({
     // parent:mainWindow,
     title: '直播窗口',
     width,
     height,
-    minWidth:width,
-    minHeight:height,
+    minWidth: width,
+    minHeight: height,
     resizable: false,
     useContentSize: true,
     alwaysOnTop: false,
@@ -142,20 +227,32 @@ ipcMain.on('openLive', () => {
       devTools: process.env.NODE_ENV === 'development'
     }
   })
-  ipcMain.on('changeScreenAspect',()=>{
-      if(!LiveWindow)return;
-      
-      let screenAspect = LocalStore.get('screenAspect')
-
-      let height = screenAspect==0?1152:720
-      let width = screenAspect==0?720:1152
+  // ipcMain.on('changeScreen', () => {
+  //   if (!LiveWindow) return
+           
+  //   let screenAspect = LocalStore.get('screenAspect')
     
-      LiveWindow.setMinimumSize(width,height)
-      LiveWindow.setSize(width,height)
+  //   let screen = LocalStore.get('screenResolution')
+           
+    
+  //   let height = screenAspect == 0 ? 1152 : 720
+  //   let width = screenAspect == 0 ? 720 : 1152
+
+  //   LiveWindow.setMinimumSize(width, height)
+  //   LiveWindow.setSize(width, height)
+  // })
+  ipcMain.on('changeScreen', () => {
+    if (!LiveWindow) return
+    let screen = LocalStore.get('screenResolution')
+    console.log("change livewindow size:",screen)
+    screen.w = Number(screen.w)
+    screen.h = Number(screen.h)
+    LiveWindow.setMinimumSize(screen.w, screen.h)
+    LiveWindow.setSize(screen.w, screen.h)
   })
   // LiveWindow.webContents.setFrameRate(30)
 
-  LiveWindow.on('close',()=>{
+  LiveWindow.on('close', () => {
     console.log("关闭live view")
   })
   LiveWindow.on('closed', () => {
@@ -195,6 +292,15 @@ ipcMain.on('component', (e, m) => {
     if (LiveWindow) {
       LiveWindow.webContents.send('component', m)
     }
+  }
+})
+ipcMain.on('party3', (e, m) => {
+  let param = JSON.parse(m)
+  if (param.cmd == 'play') {
+    if (LiveWindow) {
+      LiveWindow.webContents.send('party3play', param)
+    }
+
   }
 })
 /**

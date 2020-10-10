@@ -1,6 +1,6 @@
 {
   "name": "stage",
-  "version": "v1.0.0",
+  "version": "v1.0.1",
   "author": "zhang hongbing <hongbing.z@outlook.com>",
   "description": "pc live helper",
   "license": "private",
@@ -56,9 +56,11 @@
     }
   },
   "dependencies": {
+    "-": "0.0.1",
     "axios": "^0.18.0",
     "electron-store": "^5.1.1",
     "element-ui": "^2.13.1",
+    "g": "^2.0.1",
     "js-yaml": "3.13.1",
     "lodash.merge": "4.6.2",
     "mediaserver": "^0.1.1",
